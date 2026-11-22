@@ -54,3 +54,10 @@ Mark each test as one of:
 
 Do not invent Apple API names, availability, or behavior.
 If unsure, write `UNKNOWN: <what>. Verify by: <Apple doc or test>.`
+
+## Release metadata
+
+Before tagging, run `./Scripts/check-release.sh 1.0.0` with the version you
+are preparing. The script checks the latest changelog entry, the README install
+version, and the supported series in the security policy. Review the reported
+SIMULATOR and DEVICE gaps in `Docs/SimulatorVsDevice.md`.
