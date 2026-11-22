@@ -151,7 +151,7 @@ struct EnrollmentMonitoringTests {
         #expect(await r.fake.authenticateCallCount == 0)
     }
 
-    @Test("Change found after the session moved on still signs out")
+    @Test("A stale unlock enrollment check leaves the session locked")
     func changeAfterMoveOn() async {
         let r = rig(current: Self.a)
         await r.controller.signIn()
@@ -165,8 +165,45 @@ struct EnrollmentMonitoringTests {
         await r.provider.resume()
 
         let code = await thrownCode { try await unlock.value }
-        #expect(code == .enrollmentChanged)
-        #expect(await r.controller.state == .signedOut)
+        #expect(code == nil)
+        #expect(await r.controller.state == .locked)
+        #expect(await r.fake.authenticateCallCount == 0)
+    }
+
+    @Test("A stale step-up enrollment check refuses the action and preserves the new session")
+    func staleStepUpCheckPreservesNewSession() async {
+        let r = rig(current: Self.a)
+        await r.controller.signIn()
+        await r.provider.suspendNextRead()
+
+        let stepUp = Task { try await r.controller.authorizeSensitiveAction(reason: "x") }
+        await r.provider.waitUntilSuspended()
+        await r.controller.signOut()
+        await r.provider.set(Self.b)
+        await r.controller.signIn()
+        await r.provider.resume()
+
+        let code = await thrownCode { try await stepUp.value }
+        #expect(code == .sessionNotUnlocked)
+        #expect(await r.controller.state == .unlocked)
+        #expect(await r.fake.authenticateCallCount == 0)
+    }
+
+    @Test("A stale foreground enrollment check preserves the new session")
+    func staleForegroundCheckPreservesNewSession() async {
+        let r = rig(current: Self.a)
+        await r.controller.signIn()
+        await r.provider.suspendNextRead()
+
+        let foreground = Task { await r.controller.appWillEnterForeground() }
+        await r.provider.waitUntilSuspended()
+        await r.controller.signOut()
+        await r.provider.set(Self.b)
+        await r.controller.signIn()
+        await r.provider.resume()
+
+        await foreground.value
+        #expect(await r.controller.state == .unlocked)
     }
 
     // MARK: Success paths.
