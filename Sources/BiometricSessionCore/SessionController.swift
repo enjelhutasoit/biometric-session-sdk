@@ -233,6 +233,7 @@ public actor SessionController {
     ///
     /// Returns without a prompt while the last authentication is fresh
     /// (`SessionPolicy.stepUpFreshness`). Otherwise asks the system again.
+    /// Rechecks inactivity after the enrollment check and after the prompt.
     /// It never unlocks a session. A late success after the session changed
     /// does not authorize anything.
     /// This is a client-side check. A server must verify on its own.
@@ -250,28 +251,31 @@ public actor SessionController {
         }
         let checked = generation
         let enrollmentChanged = await enrollmentHasChanged()
-        guard generation == checked, current == .unlocked else {
+        if generation == checked, enrollmentChanged { throw invalidateForEnrollment() }
+        guard stepUpSessionIsActive(generation: checked) else {
             throw BiometricSessionError(code: .sessionNotUnlocked)
         }
-        if enrollmentChanged { throw invalidateForEnrollment() }
         if isFreshAuthentication() { return }
 
-        let attempt = generation
-        let task = stepUpTask(reason: reason, generation: attempt)
+        let task = stepUpTask(reason: reason, generation: checked)
         stepUpWaiterCount += 1
         defer { stepUpWaiterCount -= 1 }
-        do {
-            try await task.value
-        } catch {
-            throw Self.typed(error)
-        }
-        guard generation == attempt, current == .unlocked else {
+        let result = await task.result
+        let active = stepUpSessionIsActive(generation: checked)
+        if case .failure(let error) = result { throw Self.typed(error) }
+        guard active else {
             throw BiometricSessionError(code: .sessionNotUnlocked)
         }
         lastAuthentication = clock.now()
     }
 
     // MARK: Private
+
+    private func stepUpSessionIsActive(generation attempt: Int) -> Bool {
+        guard generation == attempt else { return false }
+        evaluateTimeouts()
+        return current == .unlocked
+    }
 
     private func apply(_ event: SessionEvent) {
         generation += 1
