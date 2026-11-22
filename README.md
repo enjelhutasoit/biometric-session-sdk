@@ -16,7 +16,7 @@ Zero third-party dependencies.
 
 ## Status
 
-`v0.4.0`: session.
+`v1.0.0`: stable public API. See the [compatibility policy](Docs/PublicAPI.md).
 
 Included:
 
@@ -28,7 +28,6 @@ Included:
 - `MonotonicSessionClock`, `LifecycleAdapter` (UIKit).
 - Test fakes: `ManualClock`, `FakeAuthenticator`, and more.
 
-Version 0.x: the API may change in any release.
 Many device behaviors are UNKNOWN. See the
 [simulator vs device matrix](Docs/SimulatorVsDevice.md).
 
@@ -42,7 +41,7 @@ It is not part of the package products. See its README for limits.
 ## Install
 
 ```swift
-.package(url: "https://github.com/enjelhutasoit-com/biometric-session-sdk.git", from: "0.4.0")
+.package(url: "https://github.com/enjelhutasoit/biometric-session-sdk.git", from: "1.0.0")
 ```
 
 Add products to your targets:
