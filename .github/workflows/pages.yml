@@ -1,0 +1,91 @@
+name: Publish DocC to GitHub Pages
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: github.ref_name == github.event.repository.default_branch || startsWith(github.ref, 'refs/tags/v')
+    runs-on: macos-15
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      pages: read
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_16.4.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure GitHub Pages
+        id: pages
+        uses: actions/configure-pages@v5
+      - name: Build DocC archives
+        run: ./Scripts/docbuild.sh
+      - name: Prepare static documentation
+        env:
+          PAGES_BASE_PATH: ${{ steps.pages.outputs.base_path }}
+        run: |
+          set -euo pipefail
+
+          base_path="${PAGES_BASE_PATH#/}"
+          mkdir -p .build/pages
+          {
+            cat <<'HTML'
+          <!doctype html>
+          <html lang="en">
+          <meta charset="utf-8">
+          <title>BiometricSession Documentation</title>
+          <h1>BiometricSession Documentation</h1>
+          <ul>
+          HTML
+
+            for module in \
+              BiometricSessionCore \
+              BiometricSessionKeychain \
+              BiometricSessionLocalAuth \
+              BiometricSessionTestSupport \
+              BiometricSessionUIKit; do
+              archive="$(find .build/docbuild -type d -name "$module.doccarchive" -prune -print)"
+              if [[ ! -d "$archive" ]]; then
+                echo "Expected one DocC archive for $module." >&2
+                exit 1
+              fi
+
+              slug="$(printf '%s' "$module" | tr '[:upper:]' '[:lower:]')"
+              output=".build/pages/$slug"
+              xcrun docc process-archive transform-for-static-hosting "$archive" \
+                --hosting-base-path "${base_path:+$base_path/}$slug" \
+                --output-path "$output"
+              test -f "$output/documentation/$slug/index.html"
+              printf '<li><a href="%s/documentation/%s/">%s</a></li>\n' "$slug" "$slug" "$module"
+            done
+            printf '</ul>\n'
+          } > .build/pages/index.html
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: .build/pages
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
