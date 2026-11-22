@@ -27,6 +27,17 @@ struct InactivityTimeoutTests {
 
     // MARK: Failure paths first. Doubt locks.
 
+    @Test("Repeated sign-in while unlocked preserves the original inactivity deadline")
+    func repeatedSignInPreservesDeadline() async throws {
+        let (controller, clock, _) = try make(timeout: 60)
+        await controller.signIn()
+        clock.advance(by: 59)
+        await controller.signIn()
+        clock.advance(by: 1)
+        await controller.evaluateTimeouts()
+        #expect(await controller.state == .locked)
+    }
+
     @Test("Activity after expiry does not revive the session")
     func activityAfterExpiry() async throws {
         let (controller, clock, _) = try make()

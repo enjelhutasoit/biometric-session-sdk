@@ -55,6 +55,20 @@ struct EnrollmentMonitoringTests {
 
     // MARK: Failure paths first. Doubt signs out.
 
+    @Test("Sign-in while locked preserves the baseline used to detect enrollment changes")
+    func signInWhileLockedPreservesBaseline() async {
+        let r = rig(current: Self.a)
+        await r.controller.signIn()
+        await r.controller.lock()
+        await r.provider.set(Self.b)
+        await r.controller.signIn()
+
+        let code = await thrownCode { try await r.controller.unlock(reason: "unlock") }
+        #expect(code == .enrollmentChanged)
+        #expect(await r.controller.state == .signedOut)
+        #expect(await r.fake.authenticateCallCount == 0)
+    }
+
     @Test("An ambiguous legacy baseline read signs out even when the provider returns nil")
     func unreadableBaselineWithoutDomainState() async {
         struct LegacyStore: EnrollmentBaselineStoring {

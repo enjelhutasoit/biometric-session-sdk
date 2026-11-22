@@ -80,10 +80,12 @@ public actor SessionController {
     }
 
     /// The app finished its own sign-in. Starts the inactivity window.
+    /// Calls outside `.signedOut` have no effect.
     ///
     /// With an `EnrollmentMonitor`, it also saves the current enrollment
     /// fingerprint as the baseline. If that fails the session signs out.
     public func signIn() async {
+        guard current == .signedOut else { return }
         apply(.signedIn)
         markActiveIfUnlocked()
         guard let monitor else { return }
