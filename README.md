@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/enjelhutasoit-com/biometric-session-sdk/main/assets/biometric-session-logo.png" alt="Biometric Session logo" height="130">
+  <img src="https://github.com/enjelhutasoit/biometric-session-sdk/blob/9b6b24bb87933ae4308012b3c9f1f9953048b34e/assets/biometric-session-logo.png" alt="Biometric Session logo" height="130">
 
 
 # BiometricSession
