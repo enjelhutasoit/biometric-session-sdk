@@ -37,6 +37,12 @@ Policy for 1.0.0 and later:
 | `EnrollmentMonitor` | Clients pass it to the controller. |
 | `SessionController` | The single entry point for clients. |
 
+Session checks use `EnrollmentBaselineStoring.loadChecked()`. Existing conformers inherit
+a default that accepts a stored fingerprint and throws on an ambiguous `nil`. A custom
+store that can confirm absence should implement this method, return `nil` for an absent
+item, and throw on read errors. This preserves the no-baseline/no-biometry case.
+Direct callers of `load()` keep the original optional result.
+
 ## BiometricSessionLocalAuth
 
 | Type | Why it is public |

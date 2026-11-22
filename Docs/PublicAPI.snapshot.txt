@@ -17,6 +17,7 @@ Sources/BiometricSessionCore/DomainState.swift: public struct DomainState: Senda
 Sources/BiometricSessionCore/DomainState.swift: public var debugDescription: String { "DomainState(redacted)" }
 Sources/BiometricSessionCore/DomainState.swift: public var description: String { "DomainState(redacted)" }
 Sources/BiometricSessionCore/DomainStateProviding.swift: public protocol DomainStateProviding: Sendable
+Sources/BiometricSessionCore/EnrollmentBaselineStoring.swift: public func loadChecked() async throws -> DomainState?
 Sources/BiometricSessionCore/EnrollmentBaselineStoring.swift: public protocol EnrollmentBaselineStoring: Sendable
 Sources/BiometricSessionCore/EnrollmentChange.swift: public enum EnrollmentChange: Sendable, Hashable, CaseIterable
 Sources/BiometricSessionCore/EnrollmentChange.swift: public static func evaluate(
@@ -67,6 +68,7 @@ Sources/BiometricSessionKeychain/BiometricSecretStore.swift: public init?(servic
 Sources/BiometricSessionKeychain/BiometricSecretStore.swift: public struct BiometricSecretStore: Sendable
 Sources/BiometricSessionKeychain/KeychainBaselineStore.swift: public func clear() async throws
 Sources/BiometricSessionKeychain/KeychainBaselineStore.swift: public func load() async -> DomainState?
+Sources/BiometricSessionKeychain/KeychainBaselineStore.swift: public func loadChecked() async throws -> DomainState?
 Sources/BiometricSessionKeychain/KeychainBaselineStore.swift: public func save(_ state: DomainState) async throws
 Sources/BiometricSessionKeychain/KeychainBaselineStore.swift: public init?(service: String, account: String)
 Sources/BiometricSessionKeychain/KeychainBaselineStore.swift: public struct KeychainBaselineStore: EnrollmentBaselineStoring
@@ -103,6 +105,7 @@ Sources/BiometricSessionTestSupport/InMemoryBaselineStore.swift: public actor In
 Sources/BiometricSessionTestSupport/InMemoryBaselineStore.swift: public func clear() async throws
 Sources/BiometricSessionTestSupport/InMemoryBaselineStore.swift: public func failWrites(with error: BiometricSessionError?)
 Sources/BiometricSessionTestSupport/InMemoryBaselineStore.swift: public func load() async -> DomainState? { stored }
+Sources/BiometricSessionTestSupport/InMemoryBaselineStore.swift: public func loadChecked() async throws -> DomainState? { stored }
 Sources/BiometricSessionTestSupport/InMemoryBaselineStore.swift: public func save(_ state: DomainState) async throws
 Sources/BiometricSessionTestSupport/InMemoryBaselineStore.swift: public init(_ initial: DomainState? = nil)
 Sources/BiometricSessionTestSupport/InMemoryBaselineStore.swift: public private(set) var clearCount = 0

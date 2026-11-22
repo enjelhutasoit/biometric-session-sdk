@@ -32,6 +32,9 @@ public actor InMemoryBaselineStore: EnrollmentBaselineStoring {
     /// Returns `nil` when no baseline has been saved.
     public func load() async -> DomainState? { stored }
 
+    /// Reports confirmed absence when the in-memory baseline is empty.
+    public func loadChecked() async throws -> DomainState? { stored }
+
     /// Saves a new enrollment baseline in memory.
     ///
     /// Replaces the existing baseline and increments `saveCount` on success.

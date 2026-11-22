@@ -11,8 +11,8 @@ import Security
 /// Public: pass it to `EnrollmentMonitor` as the store.
 /// The item is NOT gated by biometry, so reading never shows a prompt.
 /// It is readable only while the device is unlocked and stays on this device.
-/// UNKNOWN: reads while the device is locked fail. A failed read means
-/// "no baseline", and the controller then signs out (fail closed).
+/// UNKNOWN: read behavior while the device is locked. Verify on DEVICE.
+/// A failed checked read invalidates the monitored session.
 /// Use a service and account that differ from `BiometricSecretStore`.
 /// The same pair would overwrite the other item.
 /// Client-side. A hooked process can read or replace the baseline.
@@ -34,10 +34,20 @@ public struct KeychainBaselineStore: EnrollmentBaselineStoring {
         self.client = client
     }
 
+    /// Returns the available baseline for clients using the original optional API.
     public func load() async -> DomainState? {
+        try? await loadChecked()
+    }
+
+    /// Distinguishes a missing Keychain item from a read failure during session checks.
+    public func loadChecked() async throws -> DomainState? {
         let result = client.read(key: key)
-        guard result.status == errSecSuccess, let data = result.data else { return nil }
-        return DomainState(data: data)
+        if result.status == errSecItemNotFound { return nil }
+        try KeychainStatusMapper.check(result.status)
+        guard let data = result.data, let state = DomainState(data: data) else {
+            throw BiometricSessionError(code: .keychainFailure)
+        }
+        return state
     }
 
     public func save(_ state: DomainState) async throws {

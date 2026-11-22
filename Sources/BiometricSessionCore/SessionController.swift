@@ -298,7 +298,12 @@ public actor SessionController {
     // true when the enrollment changed or cannot be proven unchanged.
     private func enrollmentHasChanged() async -> Bool {
         guard let monitor else { return false }
-        let stored = await monitor.store.load()
+        let stored: DomainState?
+        do {
+            stored = try await monitor.store.loadChecked()
+        } catch {
+            return true
+        }
         let current = await monitor.provider.currentDomainState()
         // Nothing enrolled then and now: there is no biometry to protect.
         if stored == nil, current == nil { return false }

@@ -150,6 +150,26 @@ struct KeychainBaselineStoreTests {
         #expect(await sut.load() == nil)
     }
 
+    @Test("Checked load reports denied access even when the result has no data")
+    func checkedLoadDenied() async throws {
+        let client = FakeKeychain()
+        client.readResult = KeychainReadResult(status: errSecInteractionNotAllowed, data: nil)
+        let sut: any EnrollmentBaselineStoring = try #require(store(client))
+        let code = await thrownCode { _ = try await sut.loadChecked() }
+        #expect(code == .keychainAccessDenied)
+    }
+
+    @Test("Checked load rejects missing or empty bytes on a successful read")
+    func checkedLoadMalformed() async throws {
+        let client = FakeKeychain()
+        let sut = try #require(store(client))
+        for data in [nil, Data()] {
+            client.readResult = KeychainReadResult(status: errSecSuccess, data: data)
+            let code = await thrownCode { _ = try await sut.loadChecked() }
+            #expect(code == .keychainFailure)
+        }
+    }
+
     @Test("A failing clear throws")
     func clearFailure() async throws {
         let client = FakeKeychain()
@@ -170,6 +190,17 @@ struct KeychainBaselineStoreTests {
     }
 
     // MARK: Success paths.
+
+    @Test("Checked load distinguishes a missing item from stored bytes")
+    func checkedLoadMissingAndPresent() async throws {
+        let client = FakeKeychain()
+        let sut: any EnrollmentBaselineStoring = try #require(store(client))
+        let missing = try await sut.loadChecked()
+        #expect(missing == nil)
+        client.readResult = KeychainReadResult(status: errSecSuccess, data: Data([4, 5]))
+        let present = try await sut.loadChecked()
+        #expect(present?.data == Data([4, 5]))
+    }
 
     @Test("Save adds the raw bytes")
     func saveAdds() async throws {
