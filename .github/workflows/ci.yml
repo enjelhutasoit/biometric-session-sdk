@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -71,80 +72,57 @@ jobs:
   ios-build:
     runs-on: macos-15
     timeout-minutes: 25
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_16.4.app/Contents/Developer
     steps:
       - uses: actions/checkout@v4
-      - name: Select Xcode
-        run: |
-          test -d "$XCODE_APP" || { echo "Missing $XCODE_APP"; ls /Applications | grep -i xcode; exit 1; }
-          sudo xcode-select -s "$XCODE_APP"
-      - name: Show toolchain
+      - name: Show Xcode and Simulator SDK
         run: |
           xcodebuild -version
-          swift --version
-          uname -m
-      - name: List schemes and SDKs
-        run: |
-          xcodebuild -list
-          xcodebuild -showsdks
-      - name: Build for iOS Simulator (deployment target from Package.swift)
+          xcrun --sdk iphonesimulator --show-sdk-version
+      - name: Build package for iOS Simulator
         run: |
           xcodebuild build \
-            -scheme BiometricSessionCore \
-            -destination 'generic/platform=iOS Simulator'
-      - name: Build TestSupport for iOS Simulator
-        run: |
-          xcodebuild build \
-            -scheme BiometricSessionTestSupport \
-            -destination 'generic/platform=iOS Simulator'
-      - name: Build LocalAuth for iOS Simulator
-        run: |
-          xcodebuild build \
-            -scheme BiometricSessionLocalAuth \
-            -destination 'generic/platform=iOS Simulator'
-      - name: Build Keychain for iOS Simulator
-        run: |
-          xcodebuild build \
-            -scheme BiometricSessionKeychain \
+            -scheme BiometricSession-Package \
             -destination 'generic/platform=iOS Simulator'
 
   ios-test:
     runs-on: macos-15
     timeout-minutes: 30
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_16.4.app/Contents/Developer
     steps:
       - uses: actions/checkout@v4
-      - name: Select Xcode
+      - name: Show Xcode and eligible destinations
         run: |
-          test -d "$XCODE_APP" || { echo "Missing $XCODE_APP"; exit 1; }
-          sudo xcode-select -s "$XCODE_APP"
-      - name: List simulators
-        run: xcrun simctl list devices available
+          xcodebuild -version
+          xcodebuild -scheme BiometricSession-Package -showdestinations
       - name: Test UIKit adapter on iOS Simulator
         run: |
           xcodebuild test \
-            -scheme BiometricSessionUIKit \
-            -destination 'platform=iOS Simulator,name=iPhone 16'
+            -scheme BiometricSession-Package \
+            -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.5' \
+            -only-testing:BiometricSessionUIKitTests
 
   docs:
+    if: github.event_name == 'workflow_dispatch'
     runs-on: macos-15
     timeout-minutes: 30
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_16.4.app/Contents/Developer
     steps:
       - uses: actions/checkout@v4
-      - name: Select Xcode
-        run: |
-          test -d "$XCODE_APP" || { echo "Missing $XCODE_APP"; exit 1; }
-          sudo xcode-select -s "$XCODE_APP"
       - name: Build documentation
         run: ./Scripts/docbuild.sh
 
   ios-demo:
+    if: github.event_name == 'workflow_dispatch'
     runs-on: macos-15
     timeout-minutes: 30
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_16.4.app/Contents/Developer
     steps:
       - uses: actions/checkout@v4
-      - name: Select Xcode
-        run: |
-          test -d "$XCODE_APP" || { echo "Missing $XCODE_APP"; exit 1; }
-          sudo xcode-select -s "$XCODE_APP"
       - name: Build demo for iOS Simulator
         run: |
           xcodebuild build \
