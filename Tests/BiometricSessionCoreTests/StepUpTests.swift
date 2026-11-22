@@ -14,7 +14,8 @@ struct StepUpTests {
 
     private func make(
         freshness: TimeInterval = 60,
-        inactivity: TimeInterval = 10_000
+        inactivity: TimeInterval = 10_000,
+        enrollment: EnrollmentMonitor? = nil
     ) throws -> (SessionController, ManualClock, FakeAuthenticator) {
         var builder = SessionPolicy.Builder()
         builder.stepUpFreshness = freshness
@@ -25,7 +26,8 @@ struct StepUpTests {
         let controller = SessionController(
             authenticator: fake,
             clock: clock,
-            policy: try builder.build()
+            policy: try builder.build(),
+            enrollment: enrollment
         )
         return (controller, clock, fake)
     }
@@ -145,6 +147,73 @@ struct StepUpTests {
     }
 
     // MARK: Races.
+
+    @Test("Step-up rechecks inactivity after enrollment while authentication is fresh")
+    func expiresDuringEnrollment() async throws {
+        let provider = FakeDomainStateProvider()
+        let monitor = EnrollmentMonitor(provider: provider, store: InMemoryBaselineStore())
+        let (controller, clock, fake) = try make(inactivity: 10, enrollment: monitor)
+        await controller.signIn()
+        await fake.enqueue(.success)
+        try await controller.authorizeSensitiveAction(reason: "first")
+
+        await provider.suspendNextRead()
+        let task = Task { try await controller.authorizeSensitiveAction(reason: "second") }
+        await provider.waitUntilSuspended()
+        clock.advance(by: 10)
+        await provider.resume()
+
+        #expect(await code { try await task.value } == .sessionNotUnlocked)
+        #expect(await controller.state == .locked)
+        #expect(await fake.authenticateCallCount == 1)
+    }
+
+    @Test("A successful prompt cannot authorize an expired session", arguments: [-1, 10])
+    func expiresDuringPrompt(elapsed: Int) async throws {
+        let (controller, clock, fake) = try make(inactivity: 10)
+        await controller.signIn()
+        await fake.enqueue(.suspend)
+        let task = Task { try await controller.authorizeSensitiveAction(reason: "transfer") }
+        await fake.waitUntilSuspended()
+        clock.advance(by: TimeInterval(elapsed))
+        await fake.resume(with: .success)
+
+        #expect(await code { try await task.value } == .sessionNotUnlocked)
+        #expect(await controller.state == .locked)
+        #expect(await controller.isFreshAuthentication() == false)
+    }
+
+    @Test("A failed prompt preserves its error and locks the expired session")
+    func expiresDuringFailedPrompt() async throws {
+        let (controller, clock, fake) = try make(inactivity: 10)
+        await controller.signIn()
+        await fake.enqueue(.suspend)
+        let task = Task { try await controller.authorizeSensitiveAction(reason: "transfer") }
+        await fake.waitUntilSuspended()
+        clock.advance(by: 10)
+        await fake.resume(with: .failure(Self.denied))
+
+        #expect(await code { try await task.value } == .authenticationFailed)
+        #expect(await controller.state == .locked)
+    }
+
+    @Test("A stale prompt cannot evaluate timeouts for a replacement session")
+    func stalePromptPreservesReplacement() async throws {
+        let (controller, clock, fake) = try make(inactivity: 10)
+        await controller.signIn()
+        await fake.enqueue(.suspend)
+        let task = Task { try await controller.authorizeSensitiveAction(reason: "transfer") }
+        await fake.waitUntilSuspended()
+        await controller.signOut()
+        await controller.signIn()
+        clock.advance(by: 10)
+        await fake.resume(with: .success)
+
+        #expect(await code { try await task.value } == .sessionNotUnlocked)
+        #expect(await controller.state == .unlocked)
+        await controller.evaluateTimeouts()
+        #expect(await controller.state == .locked)
+    }
 
     @Test("Lock during the prompt: a late success does not authorize")
     func lockDuringPrompt() async throws {
