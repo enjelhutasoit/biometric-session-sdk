@@ -217,7 +217,7 @@
 			mainGroup = EF204C6530894E3E00095102;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				EF204C9B3089BD9800095102 /* XCLocalSwiftPackageReference "../../../BiometricSession" */,
+				EF204C9B3089BD9800095102 /* XCLocalSwiftPackageReference "../.." */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = EF204C6F30894E3E00095102 /* Products */;
@@ -585,9 +585,9 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		EF204C9B3089BD9800095102 /* XCLocalSwiftPackageReference "../../../BiometricSession" */ = {
+		EF204C9B3089BD9800095102 /* XCLocalSwiftPackageReference "../.." */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = ../../../BiometricSession;
+			relativePath = ../..;
 		};
 /* End XCLocalSwiftPackageReference section */
 
@@ -614,7 +614,7 @@
 		};
 		EF204CA73089BDDA00095102 /* BiometricSessionCore */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = EF204C9B3089BD9800095102 /* XCLocalSwiftPackageReference "../../../BiometricSession" */;
+			package = EF204C9B3089BD9800095102 /* XCLocalSwiftPackageReference "../.." */;
 			productName = BiometricSessionCore;
 		};
 /* End XCSwiftPackageProductDependency section */
