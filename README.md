@@ -73,7 +73,11 @@ let controller = SessionController(
 let adapter = await LifecycleAdapter(controller: controller)
 await adapter.start()
 
+// Call after the app completes its own sign-in.
 await controller.signIn()
+
+// Lock before requiring biometric authentication again.
+await controller.lock()
 try await controller.unlock(reason: "Unlock your account")
 ```
 
