@@ -27,6 +27,8 @@ public actor SessionController {
     private var failedAttempts = 0
     private var lastAuthentication: SessionInstant?
     private let monitor: EnrollmentMonitor?
+    private var preparingSignIn = false
+    private var baselineWrite: Task<Void, Error>?
     private let registry = SubscriberRegistry()
     // One prompt shared by step-up calls of the same generation.
     private var inFlightStepUp: (token: Int, generation: Int, task: Task<Void, Error>)?
@@ -82,25 +84,39 @@ public actor SessionController {
     /// The app finished its own sign-in. Starts the inactivity window.
     /// Calls outside `.signedOut` have no effect.
     ///
-    /// With an `EnrollmentMonitor`, it also saves the current enrollment
-    /// fingerprint as the baseline. If that fails the session signs out.
+    /// With an `EnrollmentMonitor`, the session stays signed out until the
+    /// baseline is ready. Duplicate calls during preparation are ignored.
+    /// Lock, sign-out, or backgrounding discards the pending sign-in.
     public func signIn() async {
-        guard current == .signedOut else { return }
+        guard current == .signedOut, !preparingSignIn else { return }
+        if let monitor {
+            preparingSignIn = true
+            let attempt = generation
+            let baseline = await monitor.provider.currentDomainState()
+            guard generation == attempt else { return }
+
+            // A previous sign-in may still be writing to this controller's store.
+            if let baselineWrite {
+                _ = await baselineWrite.result
+                guard generation == attempt else { return }
+            }
+            let write = Task {
+                defer { self.baselineWrite = nil }
+                guard self.generation == attempt else { return }
+                if let baseline {
+                    try await monitor.store.save(baseline)
+                } else {
+                    try await monitor.store.clear()
+                }
+            }
+            baselineWrite = write
+            let result = await write.result
+            guard generation == attempt else { return }
+            preparingSignIn = false
+            guard case .success = result else { return }
+        }
         apply(.signedIn)
         markActiveIfUnlocked()
-        guard let monitor else { return }
-        let attempt = generation
-        let current = await monitor.provider.currentDomainState()
-        do {
-            if let current {
-                try await monitor.store.save(current)
-            } else {
-                try await monitor.store.clear()
-            }
-        } catch {
-            // No baseline means the next check would fail anyway. Fail closed.
-            if generation == attempt { apply(.signOutRequested) }
-        }
     }
 
     /// Locks the session. A prompt already on screen is not closed.
@@ -141,6 +157,10 @@ public actor SessionController {
     /// With a grace of zero the session locks at once.
     /// A second call while already in the background keeps the first time.
     public func appDidEnterBackground() {
+        if preparingSignIn {
+            apply(.signOutRequested)
+            return
+        }
         switch current {
         case .unlocking:
             apply(.lockRequested)
@@ -255,6 +275,7 @@ public actor SessionController {
 
     private func apply(_ event: SessionEvent) {
         generation += 1
+        preparingSignIn = false
         backgroundedAt = nil
         current = SessionReducer.reduce(state: current, event: event)
         if current != .unlocked { lastAuthentication = nil }

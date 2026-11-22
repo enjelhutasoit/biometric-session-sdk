@@ -170,6 +170,68 @@ struct EnrollmentMonitoringTests {
 
     // MARK: Races.
 
+    @Test("A stale sign-in read cannot clear a newer baseline")
+    func staleSignInRead() async {
+        let r = rig(current: Self.a)
+        await r.provider.suspendNextRead()
+        let first = Task { await r.controller.signIn() }
+        await r.provider.waitUntilSuspended()
+
+        #expect(await r.controller.state == .signedOut)
+        await r.controller.signIn()
+        #expect(await r.provider.readCount == 1)
+        await r.controller.signOut()
+        await r.provider.set(Self.b)
+        await r.controller.signIn()
+        await r.provider.set(nil)
+        await r.provider.resume()
+        await first.value
+
+        #expect(await r.store.stored == Self.b)
+        #expect(await r.store.clearCount == 0)
+        #expect(await r.controller.state == .unlocked)
+    }
+
+    @Test("Backgrounding during sign-in discards the pending enrollment read")
+    func backgroundDuringSignIn() async {
+        let r = rig(current: Self.a)
+        await r.provider.suspendNextRead()
+        let signIn = Task { await r.controller.signIn() }
+        await r.provider.waitUntilSuspended()
+        await r.controller.appDidEnterBackground()
+        await r.provider.resume()
+        await signIn.value
+
+        #expect(await r.store.saveCount == 0)
+        #expect(await r.controller.state == .signedOut)
+    }
+
+    @Test("A replacement sign-in owns the final baseline after an in-flight save")
+    func replaceSignInDuringSave() async {
+        let store = SuspendedSaveStore()
+        let provider = FakeDomainStateProvider(Self.a)
+        let controller = SessionController(
+            authenticator: FakeAuthenticator(),
+            clock: ManualClock(),
+            enrollment: EnrollmentMonitor(provider: provider, store: store)
+        )
+        let first = Task { await controller.signIn() }
+        await store.waitUntilSuspended()
+        #expect(await controller.state == .signedOut)
+        await controller.signOut()
+        await provider.set(Self.b)
+        await provider.suspendNextRead()
+        let replacement = Task { await controller.signIn() }
+        await provider.waitUntilSuspended()
+        await provider.resume()
+        await store.resume()
+        await replacement.value
+        await first.value
+
+        #expect(await store.load() == Self.b)
+        #expect(await controller.state == .unlocked)
+    }
+
     @Test("Sign out during the enrollment check: no prompt, no unlock")
     func signOutDuringCheck() async throws {
         let r = rig(current: Self.a)
@@ -298,5 +360,32 @@ struct EnrollmentMonitoringTests {
         await r.controller.signIn()
         await r.controller.appWillEnterForeground()
         #expect(await r.controller.state == .unlocked)
+    }
+}
+
+private actor SuspendedSaveStore: EnrollmentBaselineStoring {
+    private var stored: DomainState?
+    private var suspendFirstSave = true
+    private var waiter: CheckedContinuation<Void, Never>?
+
+    func load() async -> DomainState? { stored }
+
+    func save(_ state: DomainState) async throws {
+        if suspendFirstSave {
+            suspendFirstSave = false
+            await withCheckedContinuation { waiter = $0 }
+        }
+        stored = state
+    }
+
+    func clear() async throws { stored = nil }
+
+    func waitUntilSuspended() async {
+        while waiter == nil { await Task.yield() }
+    }
+
+    func resume() {
+        waiter?.resume()
+        waiter = nil
     }
 }
