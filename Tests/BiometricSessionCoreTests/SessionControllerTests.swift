@@ -69,6 +69,21 @@ struct SessionControllerTests {
 
     // MARK: Races. Deterministic through a suspended fake.
 
+    @Test("Sign-in during a prompt preserves the pending unlock")
+    func signInDuringPrompt() async throws {
+        let (controller, fake) = make()
+        await controller.signIn()
+        await controller.lock()
+        await fake.enqueue(.suspend)
+
+        let unlock = Task { try await controller.unlock(reason: "unlock") }
+        await fake.waitUntilSuspended()
+        await controller.signIn()
+        await fake.resume(with: .success)
+        try await unlock.value
+        #expect(await controller.state == .unlocked)
+    }
+
     @Test("Lock during a prompt: a late success does not unlock")
     func lockDuringPrompt() async throws {
         let (controller, fake) = make()
