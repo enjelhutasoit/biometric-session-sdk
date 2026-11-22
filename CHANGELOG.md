@@ -3,6 +3,47 @@
 Format follows Keep a Changelog. Versions follow Semantic Versioning.
 While the major version is 0, any release may contain breaking changes.
 
+## [Unreleased]
+
+### Added
+
+- A SwiftUI demo with a local package reference and tests for the demo model.
+- DocC catalogs, a public API review, a threat model, and a concurrency audit.
+- Stream lifetime and deinitialization tests, plus XCTest performance tests
+  for manual runs.
+
+### Changed
+
+- A monitored sign-in stays signed out until its enrollment baseline is ready.
+  Lock, sign-out, and backgrounding discard a pending sign-in.
+- Concurrent step-up calls in the same session share a biometric prompt.
+- State streams finish when their controller is released.
+- GitHub Pages documentation builds run on version tags or manual dispatch.
+  The CI documentation and demo jobs run manually, and Markdown-only changes
+  skip the CI workflow.
+
+### Fixed
+
+- Invalid or stale sign-in attempts cannot replace a newer enrollment baseline.
+  A replacement sign-in waits for an earlier write issued by the same controller.
+- Enrollment checks from an earlier session cannot invalidate a replacement
+  session. Failed baseline reads invalidate the session even when the provider
+  returns no fingerprint. Confirmed absence on both sides is still unchanged.
+- Step-up rechecks inactivity after the enrollment read and prompt.
+- The UIKit Simulator tests use the package test scheme. The demo resolves
+  the package through a relative path.
+- The README uses the SwiftPM package identity and shows a lock before unlock
+  in the quick start. The MIT license link points to the tracked file.
+- Typed error documentation links point to the corresponding error entries.
+
+### Verification limits
+
+- The iOS 14 deployment target is compile-only in CI. iOS 14 runtime results
+  and physical-device biometric behavior remain UNKNOWN. See the
+  [simulator and device matrix](Docs/SimulatorVsDevice.md).
+- Session checks run on the client. A hooked process or compromised device
+  can bypass them. Enforce authorization on your server.
+
 ## [0.4.0] - 2026-10-21
 
 ### Added
