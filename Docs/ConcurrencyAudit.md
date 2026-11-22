@@ -20,12 +20,17 @@ Each place below re-checks `generation` and `current` afterwards.
 | Method | Awaits | Guard after the await |
 | --- | --- | --- |
 | `unlock` | enrollment check, `authenticate` | `isFresh(attempt)` |
-| `signIn` | provider read, baseline write | `generation == attempt` |
-| `appWillEnterForeground` | enrollment check | invalidation is always applied (safe direction) |
+| `signIn` | provider read, previous write, own write | Only the current generation can start a write or publish `.unlocked`. |
+| `appWillEnterForeground` | enrollment check | Only the generation that started the check can apply invalidation. |
 | `authorizeSensitiveAction` | enrollment check, shared prompt | `generation` and `current == .unlocked` |
 
 Step-up calls of the same generation share one prompt.
 Their `reason` is ignored after the first. Cancelling the caller does not close the prompt.
+
+A monitored sign-in stays signed out until its baseline is ready. An earlier
+write that has entered the store may still complete after sign-out. Within one
+controller, the next sign-in waits for that write before saving or clearing its
+own baseline. Use distinct baseline items for independent controllers.
 
 ## Non-Sendable types
 
