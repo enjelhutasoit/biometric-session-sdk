@@ -169,7 +169,10 @@ public actor SessionController {
             }
         }
         guard current == .unlocked || current == .locked else { return }
-        if await enrollmentHasChanged() { apply(.enrollmentInvalidated) }
+        let checked = generation
+        let enrollmentChanged = await enrollmentHasChanged()
+        guard generation == checked, enrollmentChanged else { return }
+        apply(.enrollmentInvalidated)
     }
 
     /// Asks the system to authenticate. Only works from `.locked`.
@@ -182,9 +185,9 @@ public actor SessionController {
         apply(.unlockRequested)
         let attempt = generation
 
-        // Invalidate even if the session moved on meanwhile. That direction is safe.
-        if await enrollmentHasChanged() { throw invalidateForEnrollment() }
+        let enrollmentChanged = await enrollmentHasChanged()
         guard isFresh(attempt) else { return }
+        if enrollmentChanged { throw invalidateForEnrollment() }
 
         do {
             try await authenticator.authenticate(reason: reason)
@@ -224,10 +227,11 @@ public actor SessionController {
             throw BiometricSessionError(code: .sessionNotUnlocked)
         }
         let checked = generation
-        if await enrollmentHasChanged() { throw invalidateForEnrollment() }
+        let enrollmentChanged = await enrollmentHasChanged()
         guard generation == checked, current == .unlocked else {
             throw BiometricSessionError(code: .sessionNotUnlocked)
         }
+        if enrollmentChanged { throw invalidateForEnrollment() }
         if isFreshAuthentication() { return }
 
         let attempt = generation
