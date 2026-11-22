@@ -55,6 +55,28 @@ struct EnrollmentMonitoringTests {
 
     // MARK: Failure paths first. Doubt signs out.
 
+    @Test("An ambiguous legacy baseline read signs out even when the provider returns nil")
+    func unreadableBaselineWithoutDomainState() async {
+        struct LegacyStore: EnrollmentBaselineStoring {
+            func load() async -> DomainState? { nil }
+            func save(_ state: DomainState) async throws {}
+            func clear() async throws {}
+        }
+
+        let fake = FakeAuthenticator()
+        let controller = SessionController(
+            authenticator: fake,
+            clock: ManualClock(),
+            enrollment: EnrollmentMonitor(provider: FakeDomainStateProvider(), store: LegacyStore())
+        )
+        await controller.signIn()
+        await controller.lock()
+        let code = await thrownCode { try await controller.unlock(reason: "x") }
+        #expect(code == .enrollmentChanged)
+        #expect(await controller.state == .signedOut)
+        #expect(await fake.authenticateCallCount == 0)
+    }
+
     @Test("Changed enrollment blocks unlock, signs out, and never prompts")
     func changedBlocksUnlock() async {
         let r = rig(current: Self.a)
