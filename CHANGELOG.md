@@ -1,9 +1,10 @@
 # Changelog
 
 Format follows Keep a Changelog. Versions follow Semantic Versioning.
-While the major version is 0, any release may contain breaking changes.
 
-## [Unreleased]
+## [1.0.0] - 2026-11-22
+
+The public API follows the compatibility policy in [Docs/PublicAPI.md](Docs/PublicAPI.md).
 
 ### Added
 
@@ -14,6 +15,9 @@ While the major version is 0, any release may contain breaking changes.
 
 ### Changed
 
+- Custom enrollment baseline stores can implement `loadChecked()` to distinguish
+  a confirmed missing baseline from a read error. The default implementation
+  treats `nil` from a legacy `load()` as a read failure.
 - A monitored sign-in stays signed out until its enrollment baseline is ready.
   Lock, sign-out, and backgrounding discard a pending sign-in.
 - Concurrent step-up calls in the same session share a biometric prompt.
