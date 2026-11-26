@@ -1,4 +1,5 @@
 <p align="center">
+  <div align="center">
   <img src="./assets/biometric-session-logo.png" alt="Biometric Session logo" height="130">
 
 
@@ -9,10 +10,12 @@
 [![License: MIT](https://img.shields.io/github/license/enjelhutasoit/biometric-session-sdk)](LICENSE)
 ![Swift 6.0](https://img.shields.io/badge/Swift-6.0-orange)
 ![iOS 14+](https://img.shields.io/badge/iOS-14%2B-blue)
-</p>
+  
 
 Biometric authentication and session lifecycle kit for Swift apps.
 Zero third-party dependencies.
+  </div>
+</p>
 
 ## Status
 
